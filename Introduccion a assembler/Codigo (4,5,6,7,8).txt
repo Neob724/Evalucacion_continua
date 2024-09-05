@@ -1,0 +1,244 @@
+.def fila=r20	;para manipular el encendido de las filas
+.def columnas=r21	;para guardar en el los bytes de la sram que tienen los patrones
+.def N1=r19
+.def N2=r18
+.def N3=r17
+
+.def N4=r22	;para poder mostrar 255 veces cada patron en la matriz
+
+;todo el puerto d como salida, d0-d7. Los 3 primeros pines del puerto b como salidas, d8,d9,d10
+ldi r16, 0b11111111
+out DDRD,r16
+ldi r16, 0b00000111
+out DDRB,r16
+
+;guardo en la sram los patrones usando el registro especial de 16 bits Z como dirección
+	ldi ZL, low(0x100)
+	ldi ZH, high(0x100)
+    	ldi r24, 0b00000000
+    	st Z+, r24
+   	 ldi r24, 0b00000000
+    	st Z+, r24
+    	ldi r24, 0b10000001
+   	 st Z+, r24
+   	 ldi r24, 0b00000000
+    	st Z+, r24
+   	 ldi r24, 0b00000000
+   	 st Z+, r24
+    ldi r24, 0b01000010
+    st Z+, r24
+    ldi r24, 0b01111110
+    st Z+, r24
+    ldi r24, 0b000000
+    st Z+, r24
+
+	ldi ZL, low(0x109)
+	ldi ZH, high(0x109)
+    ldi r24, 0b00000000
+    st Z+, r24
+    ldi r24, 0b01100110
+    st Z+, r24
+    ldi r24, 0b01100110
+    st Z+, r24
+    ldi r24, 0b00011000
+    st Z+, r24
+    ldi r24, 0b00111100
+    st Z+, r24
+    ldi r24, 0b00111100
+    st Z+, r24
+    ldi r24, 0b00100100
+    st Z+, r24
+    ldi r24, 0b00000000
+    st Z+, r24
+
+	ldi ZL, low(0x117)
+	ldi ZH, high(0x117)
+    ldi r24, 0b00000000
+    st Z+, r24
+    ldi r24, 0b01101100
+    st Z+, r24
+    ldi r24, 0b10010010
+    st Z+, r24
+    ldi r24, 0b10000010
+    st Z+, r24
+    ldi r24, 0b10000010
+    st Z+, r24
+    ldi r24, 0b01000100
+    st Z+, r24
+    ldi r24, 0b00101000
+    st Z+, r24
+    ldi r24, 0b00010000
+    st Z+, r24
+
+	ldi ZL, low(0x125)
+	ldi ZH, high(0x125)
+    ldi r24, 0b00010000
+    st Z+, r24
+    ldi r24, 0b00101000
+    st Z+, r24
+    ldi r24, 0b01000100
+    st Z+, r24
+    ldi r24, 0b10000010
+    st Z+, r24
+    ldi r24, 0b10000010
+    st Z+, r24
+    ldi r24, 0b01000100
+    st Z+, r24
+    ldi r24, 0b00101000
+    st Z+, r24
+    ldi r24, 0b00010000
+    st Z+, r24
+
+	ldi ZL, low(0x133)
+	ldi ZH, high(0x133)
+    ldi r24, 0b01000010
+    st Z+, r24
+    ldi r24, 0b00100100
+    st Z+, r24
+    ldi r24, 0b01111110
+    st Z+, r24
+    ldi r24, 0b11011011
+    st Z+, r24
+    ldi r24, 0b11111111
+    st Z+, r24
+    ldi r24, 0b11111111
+    st Z+, r24
+    ldi r24, 0b01000010
+    st Z+, r24
+    ldi r24, 0b01100110
+    st Z+, r24
+
+main:
+;mostrar cara feliz 255 veces, el equivalente a mostrarla durante 2 segundos aprox
+ldi N4,255
+a:
+rcall carafeliz
+dec N4
+cpi N4, 0
+brne a
+;con los demas patrones lo mismo
+ldi N4,255
+b:
+rcall caratriste
+dec N4
+cpi N4, 0
+brne b
+
+ldi N4,255
+c:
+rcall corazon
+dec N4
+cpi N4, 0
+brne c
+
+ldi N4,255
+d:
+rcall rombo
+dec N4
+cpi N4, 0
+brne d
+
+ldi N4,255
+e:
+rcall alien
+dec N4
+cpi N4, 0
+brne e
+
+rjmp main
+ 
+;algoritmo general para mostrar patrones
+ carafeliz:
+	ldi fila, 7
+	ldi ZL, low(0x100)	;asigno z a la dirección 0x100
+	ldi ZH, high(0x100)
+
+	mostrar1: ;desde esa dirección empiezo un bucle de 8 repeticiones para mostrar el patron de cada fila 1 a 1
+	ld columnas, Z+		;cargo en columnas el valor de la celda de la direccion z+1
+	out PORTD, columnas	;cargo puerto d columnas que seria el patron extraido de la sram
+	out PORTB, fila	
+	rcall delay_2ms	;delay de 2ms aprox
+	dec fila
+	cpi fila,255	;si fila decremento y paso de 0 a 255 entonces ya se cumplieron 8 iteraciones y ya se mostro todo el patron 1 vez en la matriz
+	brne mostrar1
+
+	ret
+
+caratriste:
+	ldi fila, 7
+	ldi ZL, low(0x109)
+	ldi ZH, high(0x109)
+
+	mostrar2:
+	ld columnas, Z+
+	out PORTD, columnas
+	out PORTB, fila
+	rcall delay_2ms
+	dec fila
+	cpi fila,255
+	brne mostrar1
+
+	ret
+
+corazon:
+	ldi fila, 7
+	ldi ZL, low(0x117)
+	ldi ZH, high(0x117)
+
+	mostrar3:
+	ld columnas, Z+
+	out PORTD, columnas
+	out PORTB, fila
+	rcall delay_2ms
+	dec fila
+	cpi fila,255
+	brne mostrar3
+
+	ret
+
+rombo:
+	ldi fila, 7
+	ldi ZL, low(0x125)
+	ldi ZH, high(0x125)
+
+	mostrar4:
+	ld columnas, Z+
+	out PORTD, columnas
+	out PORTB, fila
+	rcall delay_2ms
+	dec fila
+	cpi fila,255
+	brne mostrar4
+
+	ret
+
+alien:
+	ldi fila, 7
+	ldi ZL, low(0x133)
+	ldi ZH, high(0x133)
+
+	mostrar5:
+	ld columnas, Z+
+	out PORTD, columnas
+	out PORTB, fila
+	rcall delay_2ms
+	dec fila
+	cpi fila,255
+	brne mostrar5
+
+	ret
+
+ delay_2ms:
+    ldi N1, 1
+loop1:
+    ldi N2, 50
+loop2:
+    ldi N3, 100
+loop3:
+    dec N3 
+    brne loop3
+    dec N2
+    brne loop2
+    dec N1
+    brne loop1
+    ret

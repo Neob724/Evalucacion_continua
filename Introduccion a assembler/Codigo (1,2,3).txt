@@ -1,0 +1,99 @@
+;asigno signos a registros para trabajar con mayor claridad con los registros
+.def CADENA=r20
+.def MOVIMIENTO=r21
+.def MOVIZQ=r22
+.def MOVDER=r23
+.def N1=r19
+.def N2=r18
+.def N3=r17
+.org 0x00;inicio en la posición 0 de la memoria flash
+
+;establezco puerto d como salida, osea del d0 al d7 del arduino como output
+ldi r16,0xff
+out DDRD,r16
+
+;registros para poder hacer los algoritmos 1 y 2
+ldi CADENA, 1
+ldi MOVIMIENTO, 1
+;registros para poder hacer el algoritmo 3
+ldi MOVIZQ, 0b00000001
+ldi MOVDER, 0b10000000
+
+;llamo en el main a los 3 algoritmos
+main:
+rcall parte1
+rcall parte2
+rcall parte3
+rjmp main
+
+;algoritmo 1, mover 1 bit de derecha a izquierda
+parte1:
+    out PORTD, CADENA	;seteo el valor de salida del puerto d con el valor del registro cadena
+    rcall hs 	;delay de medio segundo mas o menos
+    lsl CADENA	;desplazar los bits de cadena hacia la izquierda
+    cpi CADENA,0	;comparo cadena con 0
+    brne parte1		;si no es 0 repite lo anterior
+    ldi CADENA, 0x00	;carga 0 a cadena para la parte 2	
+ret
+
+;algoritmo 2, encender todos los leds uno a uno empezando por derecha
+parte2:
+    out PORTD, CADENA
+    rcall hs
+    add CADENA,MOVIMIENTO	;añado a cadena el valor actual de movimiento entonces cadena guardará todos los bits que se llegaron a encender de movimiento en cadena.
+    lsl MOVIMIENTO	;desplazo a izq movimiento
+    brcc parte2		; mientoras la carry flag no este en 1 repite el ciclo
+	out PORTD, CADENA	;ya que temrina el ciclo cuando la carryflag esta en 1, no se puede mostrar el ultimo valor que seria 11111111, asi que con el out y el rcall hs se muestra lo ultimo del patron
+	rcall hs
+	ldi MOVIMIENTO, 1	;seteo registros en valores especificos para la parte 3
+	ldi CADENA, 0
+ret
+
+;algoritmo 3, encender desde los extremos e ir hacia el centro, luego volver hacia los extremos
+parte3:
+	incremento:	;rutina para ir de los extremos al centro encendiendo los leds parecido a la parte 2
+	out PORTD, CADENA
+	rcall hs
+	add CADENA,MOVIZQ
+	add CADENA,MOVDER
+    lsl MOVIZQ
+	lsr MOVDER
+    cpi MOVIZQ,0b00100000
+	brne incremento
+
+    ldi CADENA, 0xff
+	ldi MOVIZQ, 0b00001000
+	ldi MOVDER, 0b00010000
+
+	decremento:	;rutina para ir del centro a los extremos apagando los leds utilizando un algoritmo de resta, opuesto al algoritmo de incremento que hacia sumas
+	sub CADENA,MOVIZQ	;a cadena le resto los registros movizq y movder que se mueven cada uno en un sentido opuesto al otro
+	sub CADENA,MOVDER
+	lsr MOVIZQ
+	lsL MOVDER
+	out PORTD, CADENA
+	rcall hs
+	
+	cpi CADENA,0
+	brne decremento		
+	out PORTD, CADENA
+	rcall hs
+	ldi CADENA, 1
+	ldi MOVIZQ, 1
+	ldi MOVDER, 0b10000000
+ret
+
+;delay usando bucles anidados, más o menos medio segudo
+hs:
+    ldi N1, 30
+loop1:
+    ldi N2, 255
+loop2:
+    ldi N3, 255
+loop3:
+    dec N3 
+    brne loop3
+    dec N2
+    brne loop2
+    dec N1
+    brne loop1
+    ret
