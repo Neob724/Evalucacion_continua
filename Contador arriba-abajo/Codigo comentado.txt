@@ -1,0 +1,133 @@
+.org 0x0000
+rjmp configuracion
+.org 0x0016	;Direccion de interrupción CTC timer 1
+rjmp punto
+
+;Asignación de signos a patrones
+.equ n0 = 0b00111111
+.equ n1 = 0b00000110
+.equ n2 = 0b01011011
+.equ n3 = 0b01001111
+.equ n4 = 0b01100110
+.equ n5 = 0b01101101
+.equ n6 = 0b01111101
+.equ n7 = 0b00000111
+.equ n8 = 0b01111111
+.equ n9 = 0b01101111
+
+;Configuración de registros especiales, puertos I/O y memoria sram
+configuracion:
+
+;Configurar el registro TCCR1B para activar el modo CTC y establezco prescaler en 1024
+	ldi r16, (1<<WGM12)|(1<<CS12)|(1<<CS10)	;WGM12 resetea el timer/counter1 cuando alcanza OCR1A
+	sts TCCR1B, r16				;Registro de control del timer/counter1			
+   
+;Guardar el valor de comparacion en 7812 para llamar a la interrupcion cada 0,5 segundos
+	ldi r16, high(7812)
+	sts OCR1AH, r16				;OCR1A es un registro de 16 bits
+	ldi r16, low(7812)
+	sts OCR1AL, r16
+
+;Activar la interrupcion por comparación
+	ldi r16, (1<<OCIE1A)	;Interrupción cuando timer/counter1 = OCR1A.
+	sts TIMSK1, r16		;Interupt mask register del timer/counter1
+
+	sei			;Habilitar interrupciones globales
+
+;Cargar en la sram los patrones del display
+	ldi ZL, 0x01
+	ldi ZH, 0x00
+	ldi r24, n0
+	st Z+, r24
+	ldi r24, n1
+	st Z+, r24
+	ldi r24, n2
+	st Z+, r24
+	ldi r24, n3
+	st Z+, r24
+	ldi r24, n4
+	st Z+, r24
+	ldi r24, n5
+	st Z+, r24
+	ldi r24, n6
+	st Z+, r24
+	ldi r24, n7
+	st Z+, r24
+	ldi r24, n8
+	st Z+, r24
+	ldi r24, n9
+	st Z, r24
+	ldi ZH, 0x01
+	ldi ZL, 0x00
+
+;Asignar los puertos D y C como salidas	
+	ldi r16, 0xff	;Para los numeros
+	out DDRD, r16
+
+	ldi r16, 0xff	;Para el punto decimal
+	out DDRC, r16
+
+main:
+	ld r16, Z
+	out PORTD,r16
+
+	in r21, PINB
+	andi r21, 1
+	cpi r21, 1
+	breq  up
+
+	in r21, PINB
+	andi r21, 2
+	cpi r21, 2
+	breq down
+rjmp main 
+
+;Incrementar 1 en Z con debouncing
+up:
+	inc ZL
+	press_up:			;Siempre que se mantenga pulsado, hará una pausa hasta que se suelte
+		rcall debouncing	
+		in r21, PINB
+		andi r21, 1
+		cpi r21, 1
+		breq press_up
+	cpi ZL, 0x0A
+	brlo main			;Cuando ZL sea menos a 10 que retorne a main
+	ldi ZL,0x00			;Overflow: ZL=0
+	rjmp main
+
+;Decrementar 1 en Z y filtrar rebote
+down:
+	dec ZL
+	press_down:
+		RCALL debouncing
+		in r21, PINB
+		andi r21, 2
+		cpi r21, 2
+		BREQ press_down
+	cpi ZL, 0x0A
+	brlo main
+	ldi ZL,0x09			;Underflow: ZL=9
+	rjmp main
+
+;Delay para evitar rebote (200ms aproximadamente)
+debouncing:
+	ldi r27, 10
+	ldi r28, 255
+	ldi r29, 255    
+	L1:
+		dec r29
+		brne L1
+		dec r28
+		brne L1
+		dec r27
+		brne L1 
+		ret       
+
+;Rutina de interrupción para que el punto decimal haga toggle cada 0,5 segundos (frecuancia de 1 segundo)
+punto:
+	in r18, PINC		;Leer el puerto
+	ldi r19, (1 << PC5)	;Establecer bit que hará toggle
+	eor r18, r19 		;Toggle con xor
+	out PORTC,r18
+	reti
