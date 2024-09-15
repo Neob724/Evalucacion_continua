@@ -1,0 +1,416 @@
+.ORG 0X0000
+RJMP configuracion
+.org 0x0016
+rjmp barrido	;Hago un barrido de imagen cada vez que se llama a la interrupcion CTC
+
+configuracion:
+	;Config del modo CTC
+	ldi r16, (1<<WGM12)|(1<<CS12)|(1<<CS10)
+	sts TCCR1B, r16
+
+	;Numero de comparacion, en el rango de 300 para una f alta, de 52hz aprox que serian 19ms de
+	;periodo para obtener: 2ms por fila*8 filas=16ms totales en mostrar el barrido, quedando 3ms de sobra
+	;para las demas tareas
+	ldi r16, high(300)
+	sts OCR1AH, r16
+	ldi r16, low(300)
+	sts OCR1AL, r16
+
+	ldi r16, (1<<OCIE1A)
+	sts TIMSK1, r16
+
+	sei
+	
+	;declara signos a registros simplificar cosas
+	.def fila=r20
+	.def columnas=r21
+	.def N1=r19
+	.def N2=r18
+	.def N3=r17
+	.def N4=r22
+	.def N5=r23
+	
+	;Asignacion de signos a los patrones de cada letra para cargar con mayor simplicidad los patrones a la sram
+	.equ C1 = 0b00111111
+	.equ C2 = 0b01100000
+	.equ C3 = 0b01000000
+	.equ C4 = 0b01000000
+	.equ C5 = 0b01000000
+	.equ C6 = 0b01000000
+	.equ C7 = 0b01100000
+	.equ C8 = 0b00111111
+
+	.equ O1 = 0b00111110
+	.equ O2 = 0b01100011
+	.equ O3 = 0b01000001
+	.equ O4 = 0b01000001
+	.equ O5 = 0b01000001
+	.equ O6 = 0b01000001
+	.equ O7 = 0b01100011
+	.equ O8 = 0b00111110
+
+	.equ H1 = 0b00000000
+	.equ H2 = 0b01100011
+	.equ H3 = 0b01100011
+	.equ H4 = 0b01100011
+	.equ H5 = 0b01111111
+	.equ H6 = 0b01100011
+	.equ H7 = 0b01100011
+	.equ H8 = 0b01100011
+
+	.equ E1 = 0b00000000
+	.equ E2 = 0b01111111
+	.equ E3 = 0b01100000
+	.equ E4 = 0b01100000
+	.equ E5 = 0b01111111
+	.equ E6 = 0b01100000
+	.equ E7 = 0b01100000
+	.equ E8 = 0b01111111
+
+	.equ RR1 = 0b01111110	;la r sola no la acepta asm porque la confinde con registros
+	.equ RR2 = 0b01100011
+	.equ RR3 = 0b01100011
+	.equ RR4 = 0b01111110
+	.equ RR5 = 0b01101100
+	.equ RR6 = 0b01100110
+	.equ RR7 = 0b01100011
+	.equ RR8 = 0b01100001
+
+	.equ NN1 = 0b01100011	;tampoco la n sola
+	.equ NN2 = 0b01110011
+	.equ NN3 = 0b01111011
+	.equ NN4 = 0b01101111
+	.equ NN5 = 0b01100111
+	.equ NN6 = 0b01100011
+	.equ NN7 = 0b01100011
+	.equ NN8 = 0b01100011
+
+	.equ T1 = 0b00000000
+	.equ T2 = 0b01111111
+	.equ T3 = 0b00001000
+	.equ T4 = 0b00001000
+	.equ T5 = 0b00001000
+	.equ T6 = 0b00001000
+	.equ T7 = 0b00001000
+	.equ T8 = 0b00001000
+
+	.equ P1 = 0b00000000
+	.equ P2 = 0b00000000
+	.equ P3 = 0b00000000
+	.equ P4 = 0b00000000
+	.equ P5 = 0b00000000
+	.equ P6 = 0b00000000
+	.equ P7 = 0b00011000
+	.equ P8 = 0b00011000
+
+	ldi ZL, low(0x100)	;Todos los patrones se guardaran al inicio de la sram
+	ldi ZH, high(0x100)
+
+	;almacenar letra 'C'
+	ldi r24, C1
+	st Z+, r24
+	ldi r24, C2
+	st Z+, r24
+	ldi r24, C3
+	st Z+, r24
+	ldi r24, C4
+	st Z+, r24
+	ldi r24, C5
+	st Z+, r24
+	ldi r24, C6
+	st Z+, r24
+	ldi r24, C7
+	st Z+, r24
+	ldi r24, C8
+	st Z+, r24
+
+	;almacenar letra 'O'
+	ldi r24, O1
+	st Z+, r24
+	ldi r24, O2
+	st Z+, r24
+	ldi r24, O3
+	st Z+, r24
+	ldi r24, O4
+	st Z+, r24
+	ldi r24, O5
+	st Z+, r24
+	ldi r24, O6
+	st Z+, r24
+	ldi r24, O7
+	st Z+, r24
+	ldi r24, O8
+	st Z+, r24
+
+	;almacenar letra 'H'
+	ldi r24, H1
+	st Z+, r24
+	ldi r24, H2
+	st Z+, r24
+	ldi r24, H3
+	st Z+, r24
+	ldi r24, H4
+	st Z+, r24
+	ldi r24, H5
+	st Z+, r24
+	ldi r24, H6
+	st Z+, r24
+	ldi r24, H7
+	st Z+, r24
+	ldi r24, H8
+	st Z+, r24
+
+	;almacenar letra 'E'
+	ldi r24, E1
+	st Z+, r24
+	ldi r24, E2
+	st Z+, r24
+	ldi r24, E3
+	st Z+, r24
+	ldi r24, E4
+	st Z+, r24
+	ldi r24, E5
+	st Z+, r24
+	ldi r24, E6
+	st Z+, r24
+	ldi r24, E7
+	st Z+, r24
+	ldi r24, E8
+	st Z+, r24
+
+	;almacenar letra 'R'
+	ldi r24, RR1
+	st Z+, r24
+	ldi r24, RR2
+	st Z+, r24
+	ldi r24, RR3
+	st Z+, r24
+	ldi r24, RR4
+	st Z+, r24
+	ldi r24, RR5
+	st Z+, r24
+	ldi r24, RR6
+	st Z+, r24
+	ldi r24, RR7
+	st Z+, r24
+	ldi r24, RR8
+	st Z+, r24
+
+	;almacenar letra 'E'
+	ldi r24, E1
+	st Z+, r24
+	ldi r24, E2
+	st Z+, r24
+	ldi r24, E3
+	st Z+, r24
+	ldi r24, E4
+	st Z+, r24
+	ldi r24, E5
+	st Z+, r24
+	ldi r24, E6
+	st Z+, r24
+	ldi r24, E7
+	st Z+, r24
+	ldi r24, E8
+	st Z+, r24
+
+	;almacenar letra 'N'
+	ldi r24, NN1
+	st Z+, r24
+	ldi r24, NN2
+	st Z+, r24
+	ldi r24, NN3
+	st Z+, r24
+	ldi r24, NN4
+	st Z+, r24
+	ldi r24, NN5
+	st Z+, r24
+	ldi r24, NN6
+	st Z+, r24
+	ldi r24, NN7
+	st Z+, r24
+	ldi r24, NN8
+	st Z+, r24
+
+	;almacenar letra 'T'
+	ldi r24, T1
+	st Z+, r24
+	ldi r24, T2
+	st Z+, r24
+	ldi r24, T3
+	st Z+, r24
+	ldi r24, T4
+	st Z+, r24
+	ldi r24, T5
+	st Z+, r24
+	ldi r24, T6
+	st Z+, r24
+	ldi r24, T7
+	st Z+, r24
+	ldi r24, T8
+	st Z+, r24
+
+
+	;almacenar letra 'E'
+	ldi r24, E1
+	st Z+, r24
+	ldi r24, E2
+	st Z+, r24
+	ldi r24, E3
+	st Z+, r24
+	ldi r24, E4
+	st Z+, r24
+	ldi r24, E5
+	st Z+, r24
+	ldi r24, E6
+	st Z+, r24
+	ldi r24, E7
+	st Z+, r24
+	ldi r24, E8
+	st Z+, r24
+
+	;almacenar punto '.'
+	ldi r24, P1
+	st Z+, r24
+	ldi r24, P2
+	st Z+, r24
+	ldi r24, P3
+	st Z+, r24
+	ldi r24, P4
+	st Z+, r24
+	ldi r24, P5
+	st Z+, r24
+	ldi r24, P6
+	st Z+, r24
+	ldi r24, P7
+	st Z+, r24
+	ldi r24, P8
+	st Z+, r24
+
+	;Puerto d(columnas) y b(filas) como salidas, el puerto c quedara como entradas para los pulsadores
+	ldi r16, 0xff
+	out DDRD, r16
+
+	ldi r16, 0xff
+	out DDRB, r16
+
+	ldi ZH, 0x01
+	ldi ZL, 0x00
+	ldi fila,7
+
+	ldi r16, 0b11111111
+	out DDRD,r16
+	ldi r16, 0b00001111
+	out DDRB,r16
+
+main:
+	;si se presiona el pulsador salta a der
+	in r21, PINC
+	andi r21, 1
+	cpi r21, 1
+	breq  der
+	
+	;si se presiona el pulsador salta a izq
+	in r21, PINC
+	andi r21, 2
+	cpi r21, 2
+	breq izq
+
+	rjmp main
+
+;funcion para saltar 1 letra a la derecha
+der:
+	inc r30	;incremento de 8 para saltar al inicio de la siguiente letra en la sram
+	inc r30
+	inc r30
+	inc r30
+	inc r30
+	inc r30
+	inc r30
+	inc r30
+	PRESIONADO1:
+	RCALL ANTIREBOTE
+	in r21, PINC
+	andi r21, 1
+	cpi r21, 1
+	BREQ PRESIONADO1
+	cpi ZL, 0x50		;si se salio del rango de la sram donde estan las letras, resetea a la direccion inicial donde esta "C"
+	brlo main
+	ldi ZH,0x10
+	ldi ZL,0x00
+	rjmp main
+
+;funcion para saltar 1 letra a la izquierda
+izq:
+	dec r30
+	dec r30
+	dec r30
+	dec r30
+	dec r30
+	dec r30
+	dec r30
+	dec r30
+	PRESIONADO2:
+	RCALL ANTIREBOTE
+	in r21, PINC
+	andi r21, 2
+	cpi r21, 2
+	BREQ PRESIONADO2
+	cpi ZL, 0x50
+	brlo main
+	LDI ZH, 0x10
+	ldi ZL,0x00
+	rjmp main
+
+;delay anti rebote, o delay debouncing
+ANTIREBOTE:
+	ldi r27, 10
+	ldi r28, 255
+	ldi r29, 255    
+L1:
+	dec r29   
+	brne L1  
+	dec r28       
+	brne L1
+	dec r27      
+	brne L1 
+	ret   
+
+;delay de 2ms aproximadamente
+delay_2ms:
+    ldi N1, 1
+loop1:
+    ldi N2, 50
+loop2:
+    ldi N3, 100
+loop3:
+    dec N3 
+    brne loop3
+    dec N2
+    brne loop2
+    dec N1
+    brne loop1
+    ret
+
+;mostrar las 8 filas, 2ms de tiempo por cada una
+barrido:
+mostrar:
+	ld columnas, Z+		;cargo lo que haya en z en columnas
+	out PORTD, columnas	;mostrar en los pines las columans a la par de cada fila
+	out PORTB, fila
+	rcall delay_2ms		;2ms de retardo mientras se muestra la fila
+	dec fila		;algoritmo de decremento para obtener 8 iteraciones
+	cpi fila,255
+	brne mostrar
+	
+	;retrocede 8 direcciones atras para resetear la direccion a la que tenia z antes de entrar a la interrupcion
+	dec r30
+	dec r30
+	dec r30
+	dec r30
+	dec r30
+	dec r30
+	dec r30
+	dec r30
+	ldi fila,7			;Reset de filas para la proxima interrupcion
+	reti
