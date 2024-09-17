@@ -1,0 +1,56 @@
+	ldi r16, (1 << CS02) | (1 << CS00)  ;Prescaler del timer counter 0 a 1024
+	out TCCR0B, r16
+
+	ldi ZL, 0x00	;Cargar los datos desde el inicio de la sram
+	ldi ZH, 0x01
+
+	ldi r20, 0x00  ;Para cargar 128 veces seguidas el valor 0x00
+	ldi r16, 128  
+
+;Loop de carga de valores en la sram
+oo:
+	ST Z+, r20
+	dec r16  
+	brne oo 
+
+	ldi r20, 0xFF	;Para cargar 128 veces seguidas el valor 0xFF
+	ldi r16, 128
+
+;Loop de carga de valores en la sram
+ff:
+	ST Z+, r20 
+	dec r16
+	brne ff    
+
+out DDRD, r20 ;Todo el puerto D como salida
+ldi ZL, 0x00 
+ldi ZH, 0x01
+
+main:
+	call intervalo_de_muestreo
+	call mostrar_valor
+	rjmp main
+
+;Muestra en el puerto D cada valor guardado en la LUT de forma secuencial 1 a 1
+mostrar_valor:
+	cpi ZH, 0x02 ;Cuando este Z en el ultimo valor de la LUT, que se resetee la direccion.
+	breq resetear
+	LD r21,Z+
+	out PORTD,r21
+	ret
+	
+;Cuando haya mostrado todos lo valores esta rutina vuelve a la direccion donde esta el valor inicial
+resetear:
+	ldi ZH,0x01
+	ldi ZL,0x00
+	ret
+
+;Establece un delay entre valores para mostrar la señal con una frecuencia ajustable en funcion del TCNT0
+intervalo_de_muestreo:
+	ldi r16, 0
+	out TCNT0, r16
+L1:
+	in r16, TCNT0
+	cpi r16, 1
+	brlo L1  
+	ret
