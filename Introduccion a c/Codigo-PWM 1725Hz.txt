@@ -1,0 +1,17 @@
+#define F_CPU 16000000UL
+#include <avr/io.h>
+
+int main(void) {
+	DDRB |= (1 << PB1);  // pin pwm
+
+	// cnofigurar el timer 1 en modo fast pwm
+	TCCR1A |= (1 << WGM11) | (1 << COM1A1);  //OC1A en no-inverting mode
+	TCCR1B |= (1 << WGM13) | (1 << WGM12);
+
+
+	ICR1 = 144;// establecer el valor de TOP para fPWM=1725 Hz
+	OCR1A = 144/2;// Establecer el d.c.(50%)
+
+
+	TCCR1B |= (1 << CS11) | (1 << CS10);   //prescaler 64
+}

@@ -1,0 +1,57 @@
+#define F_CPU 16000000UL
+#include <avr/io.h>
+#include <avr/interrupt.h>
+#include <util/delay.h>
+
+uint16_t tiempo = 15000;  // variable para almacenar el tiempo de comparación
+
+uint8_t puerto=1;  // variable que controla el puerto de salida
+
+void config(void) {
+    TCCR1B |= (1 << WGM12); // configurar el Timer 1 en modo CTC
+    OCR1A = tiempo; 
+    TIMSK1 |= (1 << OCIE1A); // habilitar la interrupción del comparador A del Timer 1
+    TCCR1B |= (1 << CS12) | (1 << CS10);  // configurar el prescaler a 1024
+    DDRD |= 0xFF;
+    DDRB |= 0x00;  // configurar el puerto B como entrada
+    PORTD = puerto; 
+}
+
+int main(void)
+{
+    config(); 
+    sei();  // habilitar las interrupciones globales
+
+    while(1)
+    {
+        if (PINB == 0b00000010) {  // verificar si el botón 2 está presionado
+            if (tiempo > 2000) { 
+                tiempo = tiempo - 2000;  // reducir el tiempo de comparación en 2000
+                OCR1A = tiempo; 
+                TCNT1 = 0;  // reiniciar el temporizador para evitar errores
+                _delay_ms(500); 
+            }
+        }
+        
+        if (PINB == 0b00000001) { 
+            if (tiempo < 16000) {  // verificar que el tiempo no supere el límite
+                tiempo = tiempo + 2000;  // incrementar el tiempo de comparación
+                OCR1A = tiempo;
+                TCNT1 = 0; 
+                _delay_ms(500); 
+            }
+        }
+        
+    }
+}
+
+ISR(TIMER1_COMPA_vect) {
+    if(puerto!=0){ 
+        puerto=puerto<<1;  // desplazar el bit a la izquierda en cada interrupción
+        PORTD = puerto; 
+    }
+    else{ 
+        puerto=1; 
+        PORTD = puerto;
+    }
+}
