@@ -1,0 +1,76 @@
+#define F_CPU 16000000UL
+#define BAUD 9600
+#define MYUBRR ((F_CPU / (16UL * BAUD)) - 1)
+#include <avr/io.h>
+#include <avr/interrupt.h>
+uint16_t tiempo = 15625;  //oK, este valor de 15625 es porque estamos configurando para 1 segundo en el Timer con prescaler 1024
+
+uint16_t adc_read(uint8_t canal) {
+	ADMUX=(ADMUX & 0xF0) | (canal & 0x0F);	//	aquí seleccionamos el canal del ADC con unos bits bajos
+	ADCSRA |= (1 << ADSC);   //Dale a la bandera para que empiece la conversión
+	while (ADCSRA & (1 << ADSC));  //esperamos a que termine la conversión
+	return ADC;  //retorna el valor del ADC, o sea, el resultado de la conversión
+}
+
+void tx(unsigned char data) {
+	while (!(UCSR0A & (1 << UDRE0)));		//   Espera que el buffer del UART esté listo
+	UDR0 = data; //Aquí metemos el dato que vamos a mandar
+}
+
+void print(const char* str) {
+	while (*str) { //recorre todo el string
+		tx(*str++);  //usa la función que transmite el dato
+	}
+}
+
+void printInt(unsigned int value) {
+	if (value > 9) {  //si el valor tiene más de un dígito, seguimos imprimiendo
+		printInt(value / 10); //hacemos recursión para imprimir los dígitos más grandes
+	}
+	tx(value % 10 + '0');		// convertimos a carácter, sumando '0' para que sea en ASCII
+}
+
+uint32_t mapeopot(uint32_t pot) { 
+	//Este mapeo convierte el valor del potenciometro de 40-1020 a 0-255
+	return (uint32_t)(((pot - 40) * 255) / (1020 - 40));//Mapeo en base a valores maximos y minimos medidos por el potenciometro vistos en el puerto serial
+}
+
+uint32_t mapeoldr(uint32_t ldr) {
+	//Mapea el valor del LDR de 130-1000 a 0-255, es otro rango
+	return (uint32_t)(((ldr - 130) * 255) / (1000 - 130));//Mapeo en base a valores maximos y minimos medidos por el ldr vistos en el puerto serial
+}
+
+
+int main(void) {
+	ADMUX = (1 << REFS0);   //se usa AVcc como referencia de voltaje
+	ADCSRA = (1 << ADEN) | (1 << ADPS2) | (1 << ADPS1);  //	activamos el ADC y configuramos un prescaler de 64
+	UBRR0H = (unsigned char)(MYUBRR >> 8);   //ajustamos el baudrate alto para el UART
+	UBRR0L = (unsigned char)MYUBRR;  //	parte baja del baudrate, ya que es de 16 bits
+	UCSR0B = (1 << TXEN0);  //Encendemos el transmisor UART
+	UCSR0C = (1 << UCSZ01) | (1 << UCSZ00);  //	Configuramos el UART a 8 bits
+	TCCR1B |= (1 << WGM12);  //   Ponemos el Timer 1 en modo CTC
+	OCR1A = tiempo;  //   Seteamos el valor que el timer va a comparar
+	TIMSK1 |= (1 << OCIE1A);		//habilitamos la interrupción del timer cuando coincida con OCR1A
+	TCCR1B |= (1 << CS12) | (1 << CS10);   //   prescaler de 1024, ajustando el tiempo
+	sei(); //activamos las interrupciones globales
+	
+	DDRD |= 0b01100000;		//pines PD5 y PD6 en modo salida para manejar PWM
+	TCCR0A |= (1 << WGM00) | (1 << WGM01);  // PWM rápido en el Timer 0
+	TCCR0A |= (1 << COM0A1) | (1 << COM0B1);  //   Activamos el PWM en PD5 y PD6
+	TCCR0B |= (1 << CS00);		//prescaler de 1, o sea el timer va a toda velocidad
+	
+	while (1) { //bucle infinito
+		OCR0A = mapeopot(adc_read(0));  //mapea el valor del potenciometro al rango del PWM
+		OCR0B = mapeoldr(adc_read(1));  //lo mismo pero con el valor del LDR
+	}
+}
+
+ISR(TIMER1_COMPA_vect) {
+	print("\r");  //imprime retorno de carro para que el cursor vuelva al principio
+	print("Potenciometro:");
+	printInt(adc_read(0));  //manda por serial el valor del potenciómetro
+	print("\r");
+	print("LDR:");
+	printInt(adc_read(1));  //manda el valor del LDR por serial
+	print("\r");
+}
