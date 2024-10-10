@@ -1,0 +1,65 @@
+#define F_CPU 16000000UL
+#include <avr/io.h>
+#include <util/delay.h>
+
+// envía 4 bits al lcd
+void send(uint8_t HB) {
+    PORTD = (HB & 0x0F);// mantiene los 4 bits altos
+    PORTB |= 0x01;     // E=1
+    PORTB &= ~1;      // E=0
+    _delay_ms(10);   // espera para procesar
+}
+
+// envía un comando al lcd
+void sendCommand(uint8_t command) {
+    PORTB &= ~2; // RS = 0
+    send(command >> 4); // parte alta
+    send(command);     // parte baja
+}
+
+// envía un carácter al lcd
+void sendChar(uint8_t chart) {
+    PORTB |= 2; // RS = 1
+    send(chart >> 4); // parte alta
+    send(chart);     // parte baja
+}
+
+// envía un string al lcd
+void sendString(const char* str) {
+    while (*str) {
+        sendChar(*str++);
+    }
+}
+
+// limpia la pantalla
+void clear() {
+    sendCommand(0x01);
+}
+
+// mueve el cursor a la siguiente línea
+void next() {
+    sendCommand(0xC0);
+}
+
+// inicializa el lcd
+void lcdInit() {
+    DDRB |= (1 << PB0) | (1 << PB1);  // pines PB0 y PB1 como salida
+    DDRD |= 0x0F;                    // 4 bits inferiores de PORTD como salida
+
+    _delay_ms(20);              // espera inicial
+    sendCommand(0x03);         // inicializa en 8 bits
+    sendCommand(0x03);        // repite
+    sendCommand(0x02);       // cambia a 4 bits
+    sendCommand(0x28);      // configura lcd: 4 bits, 2 líneas
+    sendCommand(0x0F);     // enciende display y cursor
+    clear();              // limpia pantalla
+    sendCommand(0x06);   // cursor se mueve de izq a der
+}
+
+int main(void) {
+    lcdInit(); // inicializa el lcd
+    sendString("Made by Chavez");    // envía primer mensaje
+    next();                         // salta a la segunda línea
+    sendString("Gepard and Neo");  // envía segundo mensaje
+    while (1) {}
+}

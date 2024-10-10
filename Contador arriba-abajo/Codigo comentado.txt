@@ -1,9 +1,9 @@
 .org 0x0000
 rjmp configuracion
-.org 0x0016	;Direccion de interrupción CTC timer 1
+.org 0x0016	;Direccion de interrupciï¿½n CTC timer 1
 rjmp punto
 
-;Asignación de signos a patrones
+;Asignaciï¿½n de signos a patrones
 .equ n0 = 0b00111111
 .equ n1 = 0b00000110
 .equ n2 = 0b01011011
@@ -15,7 +15,7 @@ rjmp punto
 .equ n8 = 0b01111111
 .equ n9 = 0b01101111
 
-;Configuración de registros especiales, puertos I/O y memoria sram
+;Configuraciï¿½n de registros especiales, puertos I/O y memoria sram
 configuracion:
 
 ;Configurar el registro TCCR1B para activar el modo CTC y establezco prescaler en 1024
@@ -28,8 +28,8 @@ configuracion:
 	ldi r16, low(7812)
 	sts OCR1AL, r16
 
-;Activar la interrupcion por comparación
-	ldi r16, (1<<OCIE1A)	;Interrupción cuando timer/counter1 = OCR1A.
+;Activar la interrupcion por comparaciï¿½n
+	ldi r16, (1<<OCIE1A)	;Interrupciï¿½n cuando timer/counter1 = OCR1A.
 	sts TIMSK1, r16		;Interupt mask register del timer/counter1
 
 	sei			;Habilitar interrupciones globales
@@ -85,7 +85,7 @@ rjmp main
 ;Incrementar 1 en Z con debouncing
 up:
 	inc ZL
-	press_up:			;Siempre que se mantenga pulsado, hará una pausa hasta que se suelte
+	press_up:			;Siempre que se mantenga pulsado, harï¿½ una pausa hasta que se suelte
 		rcall debouncing	
 		in r21, PINB
 		andi r21, 1
@@ -124,10 +124,10 @@ debouncing:
 		brne L1 
 		ret       
 
-;Rutina de interrupción para que el punto decimal haga toggle cada 0,5 segundos (frecuancia de 1 segundo)
+;Rutina de interrupciï¿½n para que el punto decimal haga toggle cada 0,5 segundos (frecuancia de 1 segundo)
 punto:
 	in r18, PINC		;Leer el puerto
-	ldi r19, (1 << PC5)	;Establecer bit que hará toggle
+	ldi r19, (1 << PC5)	;Establecer bit que harï¿½ toggle
 	eor r18, r19 		;Toggle con xor
 	out PORTC,r18
 	reti

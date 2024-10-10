@@ -1,0 +1,129 @@
+.def RS = r20              ; define el registro para la señal RS
+.def E = r21               ; define el registro para la señal E
+.def dato = r22            ; define el registro para el dato a enviar
+
+start:
+	rcall delay             ; llama a la rutina de retardo
+	ldi r16, 0xFF           ; configura el puerto D como salida
+	out DDRD, r16
+	ldi r16, 0x03           ; configura el puerto B para RS y E
+	out DDRB, r16
+	rcall lcd_init          ; inicializa el lcd
+	rcall charles_gepeto    ; muestra "Charles Gepeto"
+	rcall linea             ; cambia a la segunda línea
+	rcall te_amo            ; muestra "te amo"
+
+main:
+    rjmp main              ; bucle infinito en el main
+
+lcd_init:
+    ldi dato, 0x30        ; envía comandos de inicialización al lcd
+    rcall send_command
+    ldi dato, 0x30
+    rcall send_command
+	ldi dato, 0x30
+    rcall send_command
+	ldi dato, 0x38
+    rcall send_command
+	ldi dato, 0x08
+    rcall send_command
+	ldi dato, 0x01
+    rcall send_command
+	ldi dato, 0x06
+    rcall send_command
+	ldi dato, 0x0f
+    rcall send_command
+    ret
+
+send_command:
+	ldi RS,0               ; establece RS en 0 para comandos
+    out PORTB, RS
+    rcall send_data        ; llama a la rutina para enviar datos
+    ret
+
+send_char:
+	ldi RS,1               ; establece RS en 1 para caracteres
+    out PORTB, RS
+    rcall send_data        ; llama a la rutina para enviar datos
+    ret
+
+send_data:
+    out PORTD, dato        ; envía el dato al puerto D
+	ldi E,1                ; activa la señal E
+	add E,RS               ; suma RS para mantener el valor
+    out PORTB, E          ; envía la señal E al puerto B
+	rcall delay            ; espera un tiempo para procesar
+	ldi E,0                ; desactiva la señal E
+	add E,RS               ; suma RS para mantener el valor
+    out PORTB, E          ; envía la señal E al puerto B
+	rcall delay            ; espera un tiempo para procesar
+    ret
+
+clear:
+    ldi dato, 0x01        ; prepara el comando para limpiar el lcd
+    rcall send_command     ; llama a la rutina de enviar comandos
+    ret
+
+linea:
+    ldi dato, 0xC0        ; prepara el comando para ir a la segunda línea
+    rcall send_command     ; llama a la rutina de enviar comandos
+    ret
+
+charles_gepeto:
+    ldi dato, 'C'         ; envía cada carácter de "Charles Gepeto"
+    rcall send_char
+    ldi dato, 'h'
+    rcall send_char
+    ldi dato, 'a'
+    rcall send_char
+    ldi dato, 'r'
+    rcall send_char
+    ldi dato, 'l'
+    rcall send_char
+    ldi dato, 'e'
+    rcall send_char
+    ldi dato, 's'
+    rcall send_char
+    ldi dato, ' '
+    rcall send_char
+    ldi dato, 'G'
+    rcall send_char
+    ldi dato, 'e'
+    rcall send_char
+    ldi dato, 'p'
+    rcall send_char
+    ldi dato, 'e'
+    rcall send_char
+    ldi dato, 't'
+    rcall send_char
+    ldi dato, 'o'
+    rcall send_char
+    ret
+
+te_amo:
+    ldi dato, 't'         ; envía cada carácter de "te amo"
+    rcall send_char
+    ldi dato, 'e'
+    rcall send_char
+    ldi dato, ' '
+    rcall send_char
+    ldi dato, 'a'
+    rcall send_char
+    ldi dato, 'm'
+    rcall send_char
+    ldi dato, 'o'
+    rcall send_char
+    ret
+
+delay:
+	ldi r27, 3            ; inicializa los registros para el retardo
+	ldi r28, 15
+	ldi r29, 255
+	L1:
+		dec r29              ; decrementa el contador
+		brne L1              ; repite si no ha llegado a 0
+		dec r28              ; decrementa el siguiente contador
+		brne L1              ; repite si no ha llegado a 0
+		dec r27              ; decrementa el último contador
+		brne L1              ; repite si no ha llegado a 0
+		ret 
