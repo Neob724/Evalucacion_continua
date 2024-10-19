@@ -1,0 +1,84 @@
+#define F_CPU 16000000UL  // frecuencia del microcontrolador a 16 MHz
+#define BAUD 9600  // tasa de baudios para la comunicación UART
+#define MYUBRR ((F_CPU / (16UL * BAUD)) - 1)  // cálculo para el registro UBRR basado en la frecuencia y la tasa de baudios
+
+#include <avr/io.h>
+#include <util/delay.h>  // para usar retardos
+
+// Definimos un array 2D que representa el teclado matricial
+char keypad[4][4] = {
+	{'7', '8', '9', '%'},
+	{'4', '5', '6', '*'},
+	{'1', '2', '3', '-'},
+	{'C', '0', '=', '+'}
+};
+
+// Función para leer el teclado matricial
+char read_keypad(void) {
+	for (uint8_t row = 0; row < 4; row++) {  // recorre las filas
+		PORTB = ~(1 << row);  // activa la fila actual poniendo en bajo el bit correspondiente
+		_delay_us(5);  // pequeño retardo para estabilizar la señal
+		for (uint8_t col = 2; col <= 5; col++) {  // recorre las columnas (PD2 a PD5)
+			if (!(PIND & (1 << col))) {  // si la columna está en bajo, significa que se presionó una tecla
+				_delay_ms(20);  // espera para debounce (evita lecturas erróneas por rebote)
+				while (!(PIND & (1 << col)));  // espera a que se suelte la tecla
+				return keypad[row][col - 2];  // devuelve el carácter correspondiente
+			}
+		}
+	}
+	return 0;  // si no se presiona ninguna tecla, devuelve 0
+}
+
+// Inicializa UART con los parámetros de la tasa de baudios
+void uart_init(void) {
+	UBRR0H = (unsigned char)(MYUBRR >> 8);  // parte alta de UBRR
+	UBRR0L = (unsigned char)MYUBRR;  // parte baja de UBRR
+	UCSR0B = (1 << TXEN0);  // habilita la transmisión UART
+	UCSR0C = (1 << UCSZ01) | (1 << UCSZ00);  // configuración para 8 bits de datos
+}
+
+// Envía un carácter a través de UART
+void tx(unsigned char data) {
+	while (!(UCSR0A & (1 << UDRE0)));  // espera a que el buffer de transmisión esté vacío
+	UDR0 = data;  // envía el carácter
+}
+
+// Envía una cadena de caracteres a través de UART
+void print(const char* str) {
+	while (*str) {  // recorre la cadena
+		tx(*str++);  // envía cada carácter
+	}
+}
+
+// Envía un número entero como caracteres a través de UART
+void printInt(unsigned int value) {
+	if (value > 9) {
+		printInt(value / 10);  // divide y envía cada dígito recursivamente
+	}
+	tx(value % 10 + '0');  // convierte el dígito a carácter y lo envía
+}
+
+int main(void) {
+	// Configura PB0 a PB3 como salidas (para las filas del teclado)
+	DDRB = 0x0F;  // 0b00001111
+
+	// Configura PD2 a PD5 como entradas (para las columnas del teclado)
+	DDRD &= ~((1 << PD2) | (1 << PD3) | (1 << PD4) | (1 << PD5));  // 0b00000000
+	
+	// Activa las resistencias pull-up internas en las columnas PD2 a PD5
+	PORTD |= (1 << PD2) | (1 << PD3) | (1 << PD4) | (1 << PD5);  // evita estados flotantes
+
+	uart_init();  // inicializa la comunicación UART
+	char key;  // variable para almacenar la tecla presionada
+
+	while (1) {
+		key = read_keypad();  // lee el teclado matricial
+		if (key != 0) {  // si se ha presionado una tecla
+			print("\r");  // imprime retorno de carro
+			print("Tecla: ");  // imprime el texto "Tecla: "
+			tx(key);  // envía la tecla presionada por UART
+			print("\r");  // imprime retorno de carro de nuevo
+		}
+		_delay_ms(100);  // espera 100 ms antes de la siguiente lectura
+	}
+}

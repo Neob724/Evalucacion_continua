@@ -1,0 +1,133 @@
+#define F_CPU 16000000UL  //frecuencia del microcontrolador a 16 mhz
+#define BAUD 9600  //velocidad de baudios para uart a 9600
+#define MYUBRR ((F_CPU / (16UL * BAUD)) - 1)  //cálculo del valor de ubrr
+
+#include <avr/io.h>
+#include <util/delay.h>  //biblioteca para retardos
+
+int sensor() {
+	PORTB |= (1 << PB4);  //activar el trigger del sensor ultrasonico
+	_delay_us(10);  //pulso de 10 microsegundos
+	PORTB &= ~(1 << PB4);  //desactivar trigger
+
+	while (!(PINB & (1 << PB5)));  //esperar a que se reciba el pulso de respuesta
+
+	uint32_t count = 0;
+	while (PINB & (1 << PB5)) {  //mientras esté en alto, contar el tiempo
+		_delay_us(1);
+		count++;
+	}
+
+	uint16_t distance = (count * 0.034) / 2;  //calcular la distancia
+	return distance;
+}
+
+void send(uint8_t HB) {
+	PORTD = (PORTD & 0xC3) | ((HB & 0x0F) << 2);  //mandar nibble alto/bajo
+	PORTD |= (1 << PD6);  //pulso para habilitar lcd
+	_delay_ms(1);
+	PORTD &= ~(1 << PD6);  //deshabilitar lcd
+	_delay_ms(1);
+}
+
+void sendCommand(uint8_t command) {
+	PORTD &= ~(1 << PD7);  //modo comando
+	send(command >> 4);  //mandar nibble alto
+	send(command);  //mandar nibble bajo
+}
+
+void sendChar(uint8_t chart) {
+	PORTD |= (1 << PD7);  //modo caracter
+	send(chart >> 4);
+	send(chart);
+}
+
+void clear() {
+	sendCommand(0x01);  //comando para limpiar pantalla lcd
+}
+
+void next() {
+	sendCommand(0xC0);  //comando para moverse a la segunda línea
+}
+
+void sendString(const char* str) {
+	while (*str) {
+		sendChar(*str++);  //enviar cada caracter de la cadena al lcd
+	}
+}
+
+void sendInt(unsigned int value) {
+	if (value > 9) {
+		sendInt(value / 10);  //recursividad para dividir en dígitos
+	}
+	sendChar(value % 10 + '0');  //mandar cada dígito al lcd
+}
+
+void lcdInit() {
+    DDRD |= 0b11111100;  //configuración de los pines como salida para lcd
+
+	_delay_ms(20);
+	sendCommand(0x03);  //inicializar lcd en modo 4 bits
+	sendCommand(0x03);
+	sendCommand(0x02);
+	sendCommand(0x28);  //configuración de la pantalla
+	sendCommand(0x0F);  //encender display y cursor
+	clear();
+	sendCommand(0x06);  //modo de incremento automático
+}
+
+void config(void) {
+	UBRR0H = (unsigned char)(MYUBRR >> 8);  //configurar uart
+	UBRR0L = (unsigned char)MYUBRR;
+	UCSR0B = (1 << TXEN0);  //habilitar transmisión uart
+	UCSR0C = (1 << UCSZ01) | (1 << UCSZ00);  //configurar uart a 8 bits
+
+	DDRB |= (1 << PB4);  //configurar pb4 como salida (trigger del sensor)
+	DDRB &= ~(1 << PB5);  //configurar pb5 como entrada (echo del sensor)
+
+	DDRB |= (1 << PB1);  //salida pwm para control
+	TCCR1A |= (1 << WGM11) | (1 << COM1A1);  //configuración pwm
+	TCCR1B |= (1 << WGM13) | (1 << WGM12);  //configuración del modo fast pwm
+	ICR1 = 774;  //valor del tope de pwm
+	OCR1A = 0;  //inicialización del valor de pwm
+	TCCR1B |= (1 << CS11) | (1 << CS10);  //prescaler a 64
+}
+
+void tx(unsigned char data) {
+	while (!(UCSR0A & (1 << UDRE0)));  //esperar que el buffer esté listo
+	UDR0 = data;  //transmitir el dato por uart
+}
+
+void print(const char* str) {
+	while (*str) {
+		tx(*str++);  //enviar cada caracter de la cadena por uart
+	}
+}
+
+void printInt(unsigned int value) {
+	if (value > 9) {
+		printInt(value / 10);  //enviar recursivamente cada dígito
+	}
+	tx(value % 10 + '0');  //mandar cada dígito
+}
+
+int main(void) {
+	config();  //inicializar configuración
+    lcdInit();  //inicializar lcd
+	int16_t distancia = 0;  //variable para almacenar la distancia
+
+	while (1) {
+		distancia = sensor();  //obtener la distancia del sensor
+		_delay_ms(50);  //retardo entre lecturas
+		clear();  //limpiar pantalla lcd
+		sendString("Distancia: ");  //mostrar texto en lcd
+		sendInt(distancia);  //mostrar distancia en lcd
+		sendString("cm");  //mostrar unidad de medida en lcd
+		
+		print("Distancia: ");  //enviar texto por uart
+		printInt(distancia);  //enviar distancia por uart
+		print(" cm\r\n");  //enviar unidad de medida por uart
+		
+		OCR1A = distancia;  //ajustar valor pwm en función de la distancia
+	}
+}

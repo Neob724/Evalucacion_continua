@@ -1,0 +1,73 @@
+#define F_CPU 16000000UL  //frecuencia del microcontrolador a 16 mhz
+#define BAUD 9600  //velocidad de baudios para uart a 9600
+#define MYUBRR ((F_CPU / (16UL * BAUD)) - 1)  //cálculo del valor de ubrr para el baud rate
+#include <avr/io.h>
+#include <util/delay.h>  //incluimos la biblioteca para retardos
+
+void uart_init(void) {
+	UBRR0H = (unsigned char)(MYUBRR >> 8);  //configuramos la parte alta de ubrr
+	UBRR0L = (unsigned char)MYUBRR;  //establecemos la parte baja de ubrr
+	UCSR0B = (1 << TXEN0);  //habilitamos el transmisor uart
+	UCSR0C = (1 << UCSZ01) | (1 << UCSZ00);  //configuramos uart a 8 bits
+}
+
+void tx(unsigned char data) {
+	while (!(UCSR0A & (1 << UDRE0)));  //espera hasta que el buffer esté listo
+	UDR0 = data;  //enviamos el dato por uart
+}
+
+char map_value_to_char(uint32_t value) {
+	switch (value) {
+		case 13: return '7';  //mapea el valor 13 a '7'
+		case 6: return '8';  //mapea el valor 6 a '8'
+		case 63: return '9';  //mapea el valor 63 a '9'
+		case 57: return '%';  //mapea el valor 57 a '%'
+		case 30: return '4';  //mapea el valor 30 a '4'
+		case 27: return '5';  //mapea el valor 27 a '5'
+		case 24: return '6';  //mapea el valor 24 a '6'
+		case 21: return '*';  //mapea el valor 21 a '*'
+		case 3: return '1';  //mapea el valor 3 a '1'
+		case 1: return '2';  //mapea el valor 1 a '2'
+		case 64: return '3';  //mapea el valor 64 a '3'
+		case 62: return '-';  //mapea el valor 62 a '-'
+		case 56: return 'C';  //mapea el valor 56 a 'c'
+		case 55: return '0';  //mapea el valor 55 a '0'
+		case 54: return '=';  //mapea el valor 54 a '='
+		case 53: return '+';  //mapea el valor 53 a '+'
+		default: return '?';  //si no coincide con ningún valor, retorna '?'
+	}
+}
+
+uint16_t adc_read(uint8_t canal) {
+	ADMUX = (ADMUX & 0xF0) | (canal & 0x0F);  //seleccionamos el canal adc
+	ADCSRA |= (1 << ADSC);  //iniciar la conversión
+	while (ADCSRA & (1 << ADSC));  //esperar a que termine
+	return ADC;  //retorna el resultado del adc
+}
+
+uint32_t map_analog_to_255(uint16_t value) {
+	return (value * 255) / 1023;  //mapea de 0-1023 a 0-255
+}
+
+int main(void) {
+	ADMUX = (1 << REFS0);  //configurar la referencia de voltaje a avcc
+	ADCSRA = (1 << ADEN) | (1 << ADPS2) | (1 << ADPS1);  //habilitar adc con prescaler de 64
+	uart_init();  //inicializar uart
+
+	uint32_t previous_mapped_value = 0xFFFF;  //valor inicial fuera del rango mapeado
+
+	while (1) {
+		uint16_t analog_value = adc_read(0);  //leer el valor del pin pc0 (adc0)
+		uint32_t mapped_value = map_analog_to_255(analog_value);  //mapea el valor analógico a 0-255
+
+		if (mapped_value != previous_mapped_value && mapped_value != 0) {  //verifica si hay un cambio en el valor mapeado
+			char coded_char = map_value_to_char(mapped_value);  //mapea el valor a un carácter correspondiente
+			tx(coded_char);  //envía el carácter mapeado por uart
+			tx('\r');  //envía retorno de carro
+			tx('\n');  //envía nueva línea
+			previous_mapped_value = mapped_value;  //actualiza el valor previo
+		}
+		
+		_delay_ms(100);  //espera 100 ms antes de la siguiente lectura
+	}
+}
