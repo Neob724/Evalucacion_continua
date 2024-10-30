@@ -1,0 +1,27 @@
+#define F_CPU 16000000UL
+#include <avr/io.h>
+#include <avr/sleep.h>
+#include <avr/interrupt.h>
+#include <avr/wdt.h>
+
+void watchdog_init() {
+	WDTCSR = (1 << WDCE) | (1 << WDE);//habilito la configuración del registro
+	WDTCSR = (1 << WDIE) | (1 << WDP2) | (1 << WDP1);//solo va a despertar al micro no lo va a resetear, cada 1 segundo
+	sei();
+}
+
+ISR(WDT_vect) {
+	PORTD ^= ((1 << PD2) | (1 << PD3) | (1 << PD4) | (1 << PD5) | (1 << PD6));
+}
+
+int main() {
+	DDRD |= (1 << PD2) | (1 << PD3) | (1 << PD4) | (1 << PD5) | (1 << PD6);
+	watchdog_init();
+	while (1) {
+		//todo el rato en modo sleep hasta que haya una llamada del watchdog interrupt
+		set_sleep_mode(SLEEP_MODE_PWR_DOWN);
+		sleep_enable();
+		sleep_cpu();
+		sleep_disable();
+	}
+}
